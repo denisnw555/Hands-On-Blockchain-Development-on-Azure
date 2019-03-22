@@ -1,0 +1,161 @@
+// --------------------------------------------------------------------
+// Sample Application: OpenBankWallet
+// Version: 0.1
+// Last Update: 21st March 2019
+// Location: https://github.com/PacktPublishing/Hands-On-Blockchain-Development-on-Azure/ 
+//
+// Open issues: Errors related to "0x0;" parsing on compilation
+// --------------------------------------------------------------------
+
+pragma solidity >=0.4.0 <0.6.0;
+
+contract OpenBankWallet
+{
+    enum StateType { DefaultRequest, AccountReview, ReadyToShare, ShareRequestPending, AllowThirdPartyAccess, AccessRevoked }
+    address public AccountHolder;
+    address public BankOfficer;
+    string public AccountName;
+    string public AccountNumber;
+    string public ServiceOnOffer;
+    string public AccountStatus;
+    address public CurrentAuthorizedUser;
+    string public ExpirationDate;
+    string public Image;
+    address public ThirdPartyRequestor;
+    string public RefusalReason;
+    StateType public State;
+
+    constructor(string memory accountName, address bankOfficer) public
+    {
+        AccountHolder = msg.sender;
+        AccountName = accountName;
+
+        State = StateType.AccountReview; //////////////// should be StateType.DefaultRequest?
+
+        BankOfficer = bankOfficer;
+    }
+
+    function StartProcess() public
+    {
+        /* Need to update, likely with registry to confirm sender is agent
+        Also need to add a function to re-assign the agent.
+        */
+     if (AccountHolder == msg.sender)
+        {
+            revert();
+        }
+        BankOfficer = msg.sender;
+
+        AccountStatus = "Pending";
+        State = StateType.AccountReview;
+    }
+
+    function RejectApplication(string memory rejectionReason) public
+    {
+     if (BankOfficer != msg.sender)
+        {
+            revert();
+        }
+
+        RefusalReason = rejectionReason;
+        AccountStatus = "Rejected";
+        State = StateType.AccountReview;
+    }
+
+    function UploadDocuments(string memory accountNumber, string memory image) public
+    {
+         if (BankOfficer != msg.sender)
+        {
+            revert();
+        }
+            AccountStatus = "Approved";
+            Image = image;
+            AccountNumber = accountNumber;
+            State = StateType.ReadyToShare;
+    }
+
+    function ShareWithThirdParty(address thirdPartyRequestor, string memory expirationDate, string memory serviceonOffer) public
+    {
+        if (AccountHolder != msg.sender)
+        {
+            revert();
+        }
+
+        ThirdPartyRequestor = thirdPartyRequestor;
+        CurrentAuthorizedUser = ThirdPartyRequestor;
+
+        AccountStatus ="Shared" ;
+        ServiceOnOffer = serviceonOffer;
+        ExpirationDate = expirationDate;
+        State = StateType.AllowThirdPartyAccess;
+    }
+
+    function AcceptSharingRequest() public
+    {
+        if (AccountHolder != msg.sender)
+        {
+            revert();
+        }
+
+        CurrentAuthorizedUser = ThirdPartyRequestor;
+        State = StateType.AllowThirdPartyAccess;
+    }
+
+    function RejectSharingRequest() public
+    {
+        if (AccountHolder != msg.sender)
+        {
+            revert();
+        }
+        AccountStatus ="Available";
+        CurrentAuthorizedUser=0;
+        State = StateType.ReadyToShare;
+    }
+
+    function RequestAccountAccess(string memory serviceonOffer) public
+    {
+        if (AccountHolder == msg.sender)
+        {
+            revert();
+        }
+
+        ThirdPartyRequestor = msg.sender;
+        ServiceOnOffer=serviceonOffer;
+        State = StateType.ShareRequestPending;
+    }
+
+    function ReleaseAccountAccess() public
+    {
+
+        if (CurrentAuthorizedUser != msg.sender)
+        {
+            revert();
+        }
+        AccountStatus ="Available";
+        ThirdPartyRequestor=0x0;
+        CurrentAuthorizedUser=0x0;
+        ServiceOnOffer="";
+        State = StateType.ReadyToShare;
+    }
+    
+    function RevokeAccessFromThirdParty() public
+    {
+        if (AccountHolder != msg.sender)
+        {
+            revert();
+        }
+        AccountStatus ="Available";
+        CurrentAuthorizedUser=0x0;
+        State = StateType.ReadyToShare;
+    }
+
+    function Terminate() public
+    {
+        if (AccountHolder != msg.sender)
+        {
+            revert();
+        }
+        CurrentAuthorizedUser=0x0;
+        State = StateType.AccessRevoked;
+    }
+}
